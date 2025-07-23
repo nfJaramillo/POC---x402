@@ -1,0 +1,138 @@
+{
+  "name": "x402 V2",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7e8b31f8-c114-4f15-9479-c49d79c63fdb",
+      "name": "When chat message received",
+      "webhookId": "fc91a689-5698-4c3b-a431-2a8a0d809d79"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        208,
+        224
+      ],
+      "id": "fb7336ef-de58-410c-84e2-8e15bab47443",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lHbyonLkR8R55Eka",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Llama a esta herramienta cuando quiera comprar un producto, dira el nombre del producto que quiere comprar",
+        "jsCode": "const axios = require(\"axios\");\nconst { privateKeyToAccount } = require(\"viem/accounts\");\nconst { withPaymentInterceptor, decodeXPaymentResponse } = require(\"x402-axios\");\n\n// --- Configuración quemada ---\nconst privateKey = '0xa260541d9ce0e3bff7434446b5d32419ee787f96b92978b04e7de49c4d0ec176';\nconst baseURL = 'http://localhost:4021';\n\n// --- Obtener query del usuario ---\nconst userQuery = query; // Asumiendo que 'query' viene del input directo\nif (!userQuery) throw new Error('❌ Escribe el nombre del producto (ej: \"agua\")');\n\n// --- Consultar productos ---\nconst account = privateKeyToAccount(privateKey);\nconst api = withPaymentInterceptor(axios.create({ baseURL }), account);\n\nconst { data: products } = await api.get(\"/products\");\nconst match = products.find(p => p.name?.toLowerCase().includes(userQuery.toLowerCase()));\nif (!match) throw new Error(`🚫 No hay \"${userQuery}\" disponible`);\n\n// --- Realizar compra y procesar respuesta ---\ntry {\n  const response = await api.post(`/buy/${match.id}`);\n  \n  // Decodificar x-payment-response si existe\n  let txHash = 'No disponible';\n  let paymentDetails = {};\n  \n  if (response.headers['x-payment-response']) {\n    paymentDetails = decodeXPaymentResponse(response.headers['x-payment-response']);\n    txHash = paymentDetails.transaction || txHash;\n  }\n\n  // Construir respuesta como string\n  const output = \n    `✅ Compra exitosa: ${match.name}\\n` +\n    `💵 Precio: ${match.price}\\n` +\n    `📄 TX Hash: ${txHash}\\n`;\n\n  return output;\n\n} catch (error) {\n  const errorMsg = error.response?.data?.error || error.message;\n  throw new Error(`💥 Error: ${errorMsg}`);\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        592,
+        224
+      ],
+      "id": "dde838ab-ffe8-45a1-b9a1-91f0d9a31098",
+      "name": "Code Tool"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "4ee13bd5-b2bd-45fe-935f-e15eb851e451",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "description": "Llama a este código para obtener los productos disponibles",
+        "jsCode": "const axios = require(\"axios\");\nconst { privateKeyToAccount } = require(\"viem/accounts\");\nconst { withPaymentInterceptor } = require(\"x402-axios\");\n\nconst privateKey = '0xa260541d9ce0e3bff7434446b5d32419ee787f96b92978b04e7de49c4d0ec176';\nconst baseURL = 'http://localhost:4021';\n\nconst account = privateKeyToAccount(privateKey);\n\nconst api = withPaymentInterceptor(\n  axios.create({ baseURL }),\n  account\n);\n\nconst response = await api.get(\"/products\");\n\nreturn JSON.stringify({\n  products: response.data.map(p => ({\n    id: p.id,\n    name: p.name,\n    price: p.price\n  }))\n});\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        224
+      ],
+      "id": "dc119bd4-bc7b-41c8-9ec9-12aeece0a855",
+      "name": "Code Tool1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "924b4cc6-da4a-4682-9a5f-c82b574dcc6d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d4ba0dc3513f46d9bec3e09922c77834df8b644ac5ac50bde897bf83f8f3ec05"
+  },
+  "id": "wE4AYNUTCUHhx4WS",
+  "tags": []
+}
